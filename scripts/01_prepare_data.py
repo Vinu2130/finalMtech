@@ -1,6 +1,7 @@
 import argparse
 import json
 import random
+import re
 import string
 from pathlib import Path
 
@@ -86,16 +87,25 @@ def make_llc(n: int):
     return rows
 
 
-def ingest_gsm_symbolic(path: Path, limit: int = 0):
+def extract_final_answer(answer_text: str) -> str:
+    text = str(answer_text).strip()
+    # GSM-style answers often end with "#### <final_answer>".
+    m = re.search(r"####\s*([^\n]+)", text)
+    if m:
+        return m.group(1).strip()
+    return text.splitlines()[-1].strip()
+
+
+def ingest_gsm8k(path: Path, limit: int = 0):
     raw_rows = read_jsonl(path)
     rows = []
     for i, row in enumerate(raw_rows):
         question = row.get("question") or row.get("input") or row.get("prompt")
-        answer = row.get("answer") or row.get("target") or row.get("output")
+        answer = row.get("final_answer") or row.get("answer") or row.get("target") or row.get("output")
         if question is None or answer is None:
             continue
-        answer = str(answer).strip()
-        rationale_free = row.get("rationale_free") or row.get("rationale") or ""
+        answer = extract_final_answer(str(answer))
+        rationale_free = row.get("cot") or row.get("rationale_free") or row.get("rationale") or ""
         rationale_structured = row.get("rationale_structured")
         if not rationale_structured:
             if rationale_free:
@@ -104,8 +114,8 @@ def ingest_gsm_symbolic(path: Path, limit: int = 0):
                 rationale_structured = f"Step1: Solve the problem carefully.\nAnswer: {answer}"
         rows.append(
             {
-                "id": f"gsm_symbolic_{i:06d}",
-                "task": "gsm_symbolic",
+                "id": f"gsm8k_{i:06d}",
+                "task": "gsm8k",
                 "question": str(question).strip(),
                 "answer": answer,
                 "rationale_free": str(rationale_free).strip(),
@@ -123,8 +133,8 @@ def main():
     parser.add_argument("--output_dir", type=str, required=True)
     parser.add_argument("--coin_n", type=int, default=8000)
     parser.add_argument("--llc_n", type=int, default=8000)
-    parser.add_argument("--gsm_symbolic_file", type=str, default="")
-    parser.add_argument("--gsm_symbolic_n", type=int, default=0)
+    parser.add_argument("--gsm8k_file", type=str, default="")
+    parser.add_argument("--gsm8k_n", type=int, default=0)
     parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args()
 
@@ -139,11 +149,11 @@ def main():
     write_jsonl(out / "llc_all.jsonl", llc_rows)
     print(f"Wrote {len(coin_rows)} coin_flip rows and {len(llc_rows)} llc rows to {out}")
 
-    if args.gsm_symbolic_file:
-        gsm_path = Path(args.gsm_symbolic_file)
-        gsm_rows = ingest_gsm_symbolic(gsm_path, limit=args.gsm_symbolic_n)
-        write_jsonl(out / "gsm_symbolic_all.jsonl", gsm_rows)
-        print(f"Wrote {len(gsm_rows)} gsm_symbolic rows from {gsm_path} to {out}")
+    if args.gsm8k_file:
+        gsm_path = Path(args.gsm8k_file)
+        gsm_rows = ingest_gsm8k(gsm_path, limit=args.gsm8k_n)
+        write_jsonl(out / "gsm8k_all.jsonl", gsm_rows)
+        print(f"Wrote {len(gsm_rows)} gsm8k rows from {gsm_path} to {out}")
 
 
 if __name__ == "__main__":

@@ -37,7 +37,7 @@ def main():
     inp = Path(args.input_dir)
     out = Path(args.output_dir)
 
-    tasks = ["coin_flip", "llc", "gsm_symbolic"]
+    tasks = ["coin_flip", "llc", "gsm8k"]
     for task in tasks:
         task_file = inp / f"{task}_all.jsonl"
         if not task_file.exists():

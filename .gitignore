@@ -3,8 +3,8 @@ __pycache__/
 .ipynb_checkpoints/
 *.pyc
 
-data/raw/
+# data/raw/
 outputs/
 checkpoints/
-
+data/raw/GSM_symbolic.jsonl
 base_papers/
