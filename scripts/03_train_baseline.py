@@ -173,6 +173,7 @@ def main():
         output_dir=args.output_dir,
         evaluation_strategy="epoch",
         save_strategy="epoch",
+        logging_strategy="steps",
         learning_rate=float(config["learning_rate"]),
         per_device_train_batch_size=int(config["per_device_train_batch_size"]),
         per_device_eval_batch_size=int(config["per_device_eval_batch_size"]),
@@ -181,9 +182,10 @@ def main():
         num_train_epochs=float(config["num_train_epochs"]),
         warmup_ratio=float(config["warmup_ratio"]),
         predict_with_generate=True,
-        logging_steps=50,
+        logging_steps=20,
         save_total_limit=2,
         fp16=torch.cuda.is_available(),
+        disable_tqdm=False,
         report_to=[],
     )
 
