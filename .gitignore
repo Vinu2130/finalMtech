@@ -6,5 +6,5 @@ __pycache__/
 # data/raw/
 outputs/
 checkpoints/
-data/raw/GSM_symbolic.jsonl
+data/raw/
 base_papers/

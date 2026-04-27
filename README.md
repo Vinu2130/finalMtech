@@ -2,7 +2,7 @@
 
 This repository contains a minimal, reproducible pipeline for:
 
-- data preparation (coin flip, LLC, optional GSM-Symbolic),
+- data preparation (coin flip, LLC),
 - train/valid/test split creation,
 - baseline finetuning with `t5-base`.
 
@@ -18,12 +18,6 @@ pip install -r requirements.txt
 
 ```bash
 python scripts/01_prepare_data.py --output_dir data/processed --coin_n 8000 --llc_n 8000
-```
-
-Optional GSM-Symbolic ingestion:
-
-```bash
-python scripts/01_prepare_data.py --output_dir data/processed --coin_n 8000 --llc_n 8000 --gsm_symbolic_file data/raw/gsm_symbolic.jsonl --gsm_symbolic_n 4000
 ```
 
 3. Build splits:

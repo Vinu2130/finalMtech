@@ -1,1 +1,0 @@
-{"id": "gsm_symbolic_000001", "task": "gsm_symbolic", "question": "A shop sold 12 pens in the morning and 8 in the evening. Total pens sold?", "answer": "20", "rationale_free": "", "rationale_structured": "Step1: Morning sales are 12 and evening sales are 8.\nStep2: Add 12 + 8.\nAnswer: 20", "meta": {"source_file": "gsm_symbolic_sample.jsonl"}}
