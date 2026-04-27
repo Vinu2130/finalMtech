@@ -32,6 +32,12 @@ python scripts/02_build_splits.py --input_dir data/processed --output_dir data/s
 python scripts/03_train_baseline.py --task coin_flip --method direct --train_file data/splits/coin_flip/train.jsonl --valid_file data/splits/coin_flip/valid_iid.jsonl --output_dir outputs/coin_flip_direct
 ```
 
+Train GSM8K directly at runtime (official split):
+
+```bash
+python scripts/03_train_baseline.py --task gsm8k --method direct --output_dir outputs/gsm8k_direct --max_train_samples 4000 --max_valid_samples 500
+```
+
 PowerShell helper script:
 
 ```powershell
