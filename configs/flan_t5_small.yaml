@@ -1,0 +1,11 @@
+model_name: google/flan-t5-small
+max_input_length: 256
+max_target_length: 128
+learning_rate: 0.0005
+weight_decay: 0.01
+num_train_epochs: 3
+per_device_train_batch_size: 8
+per_device_eval_batch_size: 8
+gradient_accumulation_steps: 2
+warmup_ratio: 0.06
+seed: 42
