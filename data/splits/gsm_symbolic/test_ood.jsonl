@@ -1,0 +1,1 @@
+{"id": "gsm_symbolic_000000", "task": "gsm_symbolic", "question": "If Raj has 4 apples and buys 3 more, how many apples does he have?", "answer": "7", "rationale_free": "Raj starts with 4 and adds 3.", "rationale_structured": "Step1: Raj starts with 4 and adds 3.\nAnswer: 7", "meta": {"source_file": "gsm_symbolic_sample.jsonl"}}

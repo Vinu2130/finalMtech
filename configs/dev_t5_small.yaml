@@ -1,0 +1,11 @@
+model_name: t5-small
+max_input_length: 128
+max_target_length: 64
+learning_rate: 0.0005
+weight_decay: 0.01
+num_train_epochs: 1
+per_device_train_batch_size: 4
+per_device_eval_batch_size: 4
+gradient_accumulation_steps: 1
+warmup_ratio: 0.0
+seed: 42
