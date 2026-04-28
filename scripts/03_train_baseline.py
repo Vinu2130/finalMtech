@@ -277,12 +277,23 @@ def main():
 
     collator = DataCollatorForSeq2Seq(tokenizer=tokenizer, model=model)
 
+    def sanitize_token_ids(arr):
+        arr = np.asarray(arr)
+        if arr.ndim == 3:
+            arr = np.argmax(arr, axis=-1)
+        arr = arr.astype(np.int64, copy=False)
+        # Replace invalid token ids that may appear in some generation/eval edge cases.
+        arr = np.where(arr < 0, tokenizer.pad_token_id, arr)
+        arr = np.where(arr >= tokenizer.vocab_size, tokenizer.pad_token_id, arr)
+        return arr
+
     def compute_metrics(eval_pred):
         preds, labels = eval_pred
         if isinstance(preds, tuple):
             preds = preds[0]
+        preds = sanitize_token_ids(preds)
         pred_texts = tokenizer.batch_decode(preds, skip_special_tokens=True)
-        labels = np.where(labels != -100, labels, tokenizer.pad_token_id)
+        labels = sanitize_token_ids(np.where(labels != -100, labels, tokenizer.pad_token_id))
         label_texts = tokenizer.batch_decode(labels, skip_special_tokens=True)
         correct = 0
         for p, g in zip(pred_texts, label_texts):
@@ -303,6 +314,8 @@ def main():
         num_train_epochs=float(config["num_train_epochs"]),
         warmup_ratio=float(config["warmup_ratio"]),
         predict_with_generate=True,
+        generation_max_length=max_out,
+        generation_num_beams=1,
         logging_steps=20,
         save_total_limit=2,
         fp16=torch.cuda.is_available(),
@@ -325,7 +338,7 @@ def main():
     Path(args.output_dir).mkdir(parents=True, exist_ok=True)
     with (Path(args.output_dir) / "eval_metrics.json").open("w", encoding="utf-8") as f:
         json.dump(metrics, f, indent=2)
-    if args.task == "gsm8k" and test_rows:
+    if args.task in {"gsm8k", "gsm8k_teacher"} and test_rows:
         test_ds = make_dataset(test_rows, args.method)
         test_tok = test_ds.map(tokenize_fn, batched=True, remove_columns=test_ds.column_names)
         test_metrics = trainer.evaluate(eval_dataset=test_tok, metric_key_prefix="test", max_length=max_out)

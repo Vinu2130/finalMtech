@@ -85,6 +85,12 @@ python scripts/03_train_baseline.py --task gsm8k_teacher --method free_cot --tra
 python scripts/03_train_baseline.py --task gsm8k_teacher --method structured_cot --train_file data/splits/gsm8k_teacher/train.jsonl --valid_file data/splits/gsm8k_teacher/valid_iid.jsonl --output_dir outputs/gsm8k_teacher_structured_cot
 ```
 
+5. Collect all GSM8K-teacher run metrics into one CSV:
+
+```bash
+python scripts/04_collect_results.py --outputs_dir outputs --prefix gsm8k_teacher_ --out_csv outputs/gsm8k_teacher_results.csv
+```
+
 ## Data schema
 
 Every JSONL line contains:
