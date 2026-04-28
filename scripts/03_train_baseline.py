@@ -103,6 +103,126 @@ def load_gsm8k_rows(seed: int, valid_ratio: float, max_train: int, max_valid: in
     return train_rows, valid_rows, test_rows
 
 
+def first_non_empty(row, keys, default=""):
+    for key in keys:
+        if key in row and row[key] is not None and str(row[key]).strip():
+            return row[key]
+    return default
+
+
+def format_options(value):
+    if isinstance(value, list):
+        return "\n".join(str(v) for v in value)
+    return str(value) if value is not None else ""
+
+
+def load_hf_split(dataset_name, dataset_config, split_name):
+    if dataset_config:
+        return load_dataset(dataset_name, dataset_config, split=split_name)
+    return load_dataset(dataset_name, split=split_name)
+
+
+def try_load_dataset(specs):
+    last_err = None
+    for dataset_name, dataset_config in specs:
+        try:
+            ds = load_dataset(dataset_name, dataset_config) if dataset_config else load_dataset(dataset_name)
+            return ds, dataset_name, dataset_config
+        except Exception as exc:  # noqa: BLE001 - we want to try fallbacks
+            last_err = exc
+            continue
+    raise RuntimeError(f"Could not load any dataset from specs={specs}. Last error: {last_err}") from last_err
+
+
+def split_train_valid(train_split, seed: int, valid_ratio: float):
+    train_split = train_split.shuffle(seed=seed)
+    valid_size = max(1, int(len(train_split) * valid_ratio))
+    valid_split = train_split.select(range(valid_size))
+    train_split = train_split.select(range(valid_size, len(train_split)))
+    return train_split, valid_split
+
+
+def normalize_rows(split, task_name: str, prefix: str):
+    rows = []
+    for i, ex in enumerate(split):
+        if task_name == "gsm8k":
+            rationale_free, answer = parse_gsm8k_answer(ex["answer"])
+            question = ex["question"]
+        elif task_name == "svamp":
+            body = first_non_empty(ex, ["Body", "body", "context", "question"])
+            question_part = first_non_empty(ex, ["Question", "question"])
+            question = f"{body}\n{question_part}".strip()
+            answer = str(first_non_empty(ex, ["Answer", "answer"])).strip()
+            rationale_free = ""
+        elif task_name == "aqua":
+            question = str(first_non_empty(ex, ["question", "Question"])).strip()
+            options = format_options(first_non_empty(ex, ["options", "Options"], default=""))
+            if options:
+                question = f"{question}\nOptions:\n{options}"
+            answer = str(first_non_empty(ex, ["correct", "answer", "correct_option"])).strip()
+            rationale_free = str(first_non_empty(ex, ["rationale", "Rationale"], default="")).strip()
+        elif task_name == "mathqa":
+            problem = first_non_empty(ex, ["Problem", "problem", "question"])
+            options = format_options(first_non_empty(ex, ["options", "Options"], default=""))
+            question = f"{problem}\nOptions:\n{options}".strip() if options else str(problem).strip()
+            answer = str(first_non_empty(ex, ["correct", "answer", "correct_option"])).strip()
+            rationale_free = str(first_non_empty(ex, ["Rationale", "rationale"], default="")).strip()
+        else:
+            raise ValueError(f"Unsupported benchmark task: {task_name}")
+
+        rationale_structured = f"Step1: {rationale_free}\nAnswer: {answer}" if rationale_free else f"Answer: {answer}"
+        rows.append(
+            {
+                "id": f"{prefix}_{i:06d}",
+                "task": task_name,
+                "question": str(question).strip(),
+                "answer": str(answer).strip(),
+                "rationale_free": str(rationale_free).strip(),
+                "rationale_structured": str(rationale_structured).strip(),
+                "meta": {"source": task_name},
+            }
+        )
+    return rows
+
+
+def cap_rows(rows, limit):
+    if limit > 0:
+        return rows[:limit]
+    return rows
+
+
+def load_benchmark_rows(task: str, seed: int, valid_ratio: float, max_train: int, max_valid: int, max_test: int):
+    if task == "gsm8k":
+        return load_gsm8k_rows(seed, valid_ratio, max_train, max_valid, max_test)
+
+    specs_by_task = {
+        "svamp": [("ChilleD/SVAMP", None), ("svamp", None)],
+        "aqua": [("aqua_rat", "raw"), ("aqua_rat", None)],
+        "mathqa": [("math_qa", None)],
+    }
+    if task not in specs_by_task:
+        raise ValueError(f"Unsupported --task '{task}'. Supported benchmark tasks: gsm8k, svamp, aqua, mathqa.")
+
+    ds, _, _ = try_load_dataset(specs_by_task[task])
+    if "train" in ds:
+        train_split = ds["train"]
+    else:
+        first_key = list(ds.keys())[0]
+        train_split = ds[first_key]
+
+    if "test" in ds:
+        test_split = ds["test"]
+    else:
+        test_split = train_split
+
+    train_split, valid_split = split_train_valid(train_split, seed=seed, valid_ratio=valid_ratio)
+
+    train_rows = cap_rows(normalize_rows(train_split, task, f"{task}_train"), max_train)
+    valid_rows = cap_rows(normalize_rows(valid_split, task, f"{task}_valid"), max_valid)
+    test_rows = cap_rows(normalize_rows(test_split, task, f"{task}_test"), max_test)
+    return train_rows, valid_rows, test_rows
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--task", type=str, required=True)
@@ -120,15 +240,16 @@ def main():
     config = yaml.safe_load(Path(args.config).read_text(encoding="utf-8"))
     set_seed(config.get("seed", 42))
 
-    if args.task == "gsm8k":
-        train_rows, valid_rows, test_rows = load_gsm8k_rows(
+    if args.task in {"gsm8k", "svamp", "aqua", "mathqa"}:
+        train_rows, valid_rows, test_rows = load_benchmark_rows(
+            task=args.task,
             seed=int(config.get("seed", 42)),
             valid_ratio=float(args.gsm8k_valid_ratio),
             max_train=int(args.max_train_samples),
             max_valid=int(args.max_valid_samples),
             max_test=int(args.max_test_samples),
         )
-        print(f"gsm8k runtime load: train={len(train_rows)} valid={len(valid_rows)} test={len(test_rows)}")
+        print(f"{args.task} runtime load: train={len(train_rows)} valid={len(valid_rows)} test={len(test_rows)}")
     else:
         if not args.train_file or not args.valid_file:
             raise ValueError("For non-gsm8k tasks, --train_file and --valid_file are required.")

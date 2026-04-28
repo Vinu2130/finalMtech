@@ -37,11 +37,13 @@ def main():
     inp = Path(args.input_dir)
     out = Path(args.output_dir)
 
-    tasks = ["coin_flip", "llc", "gsm8k"]
-    for task in tasks:
-        task_file = inp / f"{task}_all.jsonl"
-        if not task_file.exists():
-            continue
+    task_files = sorted(inp.glob("*_all.jsonl"))
+    if not task_files:
+        print(f"No *_all.jsonl files found in {inp}")
+        return
+
+    for task_file in task_files:
+        task = task_file.name.replace("_all.jsonl", "")
         rows = read_jsonl(task_file)
         train, valid, test = split_rows(rows, seed=args.seed)
         write_jsonl(out / task / "train.jsonl", train)
